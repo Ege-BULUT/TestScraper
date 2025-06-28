@@ -5,3 +5,4 @@ pandas
 Pillow
 streamlit-paste-button
 xlsxwriter
+bcrypt
