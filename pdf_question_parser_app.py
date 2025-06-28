@@ -7,14 +7,34 @@ from PIL import Image
 import streamlit as st
 from pdfminer.high_level import extract_text
 from streamlit_paste_button import paste_image_button
+import bcrypt
+
+# ----------- Basit Hash Tabanlı Erişim Kontrolü -----------
+PASSWORD_HASH = b'$2b$12$UHkFi8KTgYQlLoovxi/nsuZtOtyEQrE8nhtDt4aRIiVmDYhAHJe6u'
+
+if 'authenticated' not in st.session_state:
+    st.session_state.authenticated = False
+
+if not st.session_state.authenticated:
+    st.title("🔒 Giriş Yap")
+    password = st.text_input("Şifre", type="password")
+    if st.button("Giriş"):
+        if bcrypt.checkpw(password.encode(), PASSWORD_HASH):
+            st.session_state.authenticated = True
+            st.rerun()
+        else:
+            st.error("Hatalı şifre")
+    st.stop()
+
+# ----------------------------------------------------------
 
 st.set_page_config(page_title="PDF Soru Tablosu", layout="wide")
-st.title("\U0001F4D8 Limits PDF'ten Soru Tablosu Oluştur")
+st.title("📘 Limits PDF'ten Soru Tablosu Oluştur")
 
 if 'question_data' not in st.session_state:
     st.session_state.question_data = []
 
-uploaded_file = st.file_uploader("\U0001F4C4 PDF dosyasını yükle", type=["pdf"])
+uploaded_file = st.file_uploader("📄 PDF dosyasını yükle", type=["pdf"])
 
 if uploaded_file:
     uploaded_file.seek(0)
@@ -35,7 +55,6 @@ if uploaded_file:
             for i, line in enumerate(lines) if line.strip().endswith(('A', 'B', 'C', 'D'))
         ]
 
-    # Sıralı başlık aralıklarına göre tüm soruları topla
     sections = [
         ("Easy Questions", "Easy"),
         ("Medium Questions", "Medium"),
@@ -45,7 +64,7 @@ if uploaded_file:
 
     section_indices = [(text.find(title), level) for title, level in sections if text.find(title) != -1]
     section_indices.sort()
-    section_indices.append((len(text), None))  # Metin sonu
+    section_indices.append((len(text), None))
 
     combined_data = []
     for i in range(len(section_indices) - 1):
@@ -56,7 +75,7 @@ if uploaded_file:
     st.session_state.question_data = combined_data
 
 if st.session_state.question_data:
-    st.markdown("### \U0001F4C8 Excel Önizleme")
+    st.markdown("### 📈 Excel Önizleme")
     placeholder = st.empty()
 
     st.markdown("### ✏️ Sorular ve Görsel Ekle")
@@ -72,7 +91,7 @@ if st.session_state.question_data:
                 st.write(f"**Level:** {q['Level']}")
 
             with col2:
-                pasted_img = paste_image_button(label="\U0001F4CB Soru Görseli", key=f"qimg_{i}")
+                pasted_img = paste_image_button(label="📋 Soru Görseli", key=f"qimg_{i}")
                 if pasted_img and pasted_img.image_data:
                     buf = io.BytesIO()
                     pasted_img.image_data.save(buf, format="PNG")
@@ -80,7 +99,7 @@ if st.session_state.question_data:
                     st.session_state.question_data[i]["Image"] = base64.b64encode(img_bytes).decode("utf-8")
                     st.image(img_bytes, caption="Soru Görseli", width=80)
 
-                pasted_desc = paste_image_button(label="\U0001F4CB Cevap Açıklaması Görseli", key=f"adesc_{i}")
+                pasted_desc = paste_image_button(label="📋 Cevap Açıklaması Görseli", key=f"adesc_{i}")
                 if pasted_desc and pasted_desc.image_data:
                     buf2 = io.BytesIO()
                     pasted_desc.image_data.save(buf2, format="PNG")
@@ -91,7 +110,7 @@ if st.session_state.question_data:
     df_preview = pd.DataFrame(st.session_state.question_data)
     placeholder.dataframe(df_preview, use_container_width=True)
 
-    if st.button("\U0001F4E5 Excel çıktısını indir"):
+    if st.button("📥 Excel çıktısını indir"):
         df = pd.DataFrame(st.session_state.question_data)
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
