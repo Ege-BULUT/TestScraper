@@ -1,0 +1,7 @@
+streamlit
+pdfminer.six
+PyMuPDF
+pandas
+Pillow
+streamlit-paste-button
+xlsxwriter
