@@ -10,7 +10,7 @@ from streamlit_paste_button import paste_image_button
 import bcrypt
 
 # ----------- Basit Hash Tabanlı Erişim Kontrolü -----------
-PASSWORD_HASH = b'$2b$12$UHkFi8KTgYQlLoovxi/nsuZtOtyEQrE8nhtDt4aRIiVmDYhAHJe6u'
+PASSWORD_HASH = b'$2b$12$0x3pHd0TAuMZhsHXP1bR7egwZL1HqIjS3KHrSDlmXSaVhJP1C/Xly'
 if 'authenticated' not in st.session_state:
     st.session_state.authenticated = False
 
@@ -28,7 +28,7 @@ if not st.session_state.authenticated:
 # ----------------------------------------------------------
 
 st.set_page_config(page_title="PDF Soru Tablosu", layout="wide")
-st.title("📘PDF'ten Soru Tablosu Oluştur")
+st.title("📘 PDF'ten Soru Tablosu Oluştur")
 
 if 'question_data' not in st.session_state:
     st.session_state.question_data = []
@@ -81,6 +81,9 @@ if uploaded_file:
             df = pd.read_csv(uploaded_file)
         else:
             df = pd.read_excel(uploaded_file)
+
+        # Unnamed: 0 gibi otomatik index kolonlarını kaldır
+        df = df.loc[:, ~df.columns.str.contains('^Unnamed')] 
         st.session_state.question_data = df.to_dict(orient="records")
 
 if st.session_state.question_data:
