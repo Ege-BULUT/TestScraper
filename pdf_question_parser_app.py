@@ -11,7 +11,6 @@ import bcrypt
 
 # ----------- Basit Hash Tabanlı Erişim Kontrolü -----------
 PASSWORD_HASH = b'$2b$12$UHkFi8KTgYQlLoovxi/nsuZtOtyEQrE8nhtDt4aRIiVmDYhAHJe6u'
-
 if 'authenticated' not in st.session_state:
     st.session_state.authenticated = False
 
@@ -29,50 +28,60 @@ if not st.session_state.authenticated:
 # ----------------------------------------------------------
 
 st.set_page_config(page_title="PDF Soru Tablosu", layout="wide")
-st.title("📘 Limits PDF'ten Soru Tablosu Oluştur")
+st.title("📘PDF'ten Soru Tablosu Oluştur")
 
 if 'question_data' not in st.session_state:
     st.session_state.question_data = []
 
-uploaded_file = st.file_uploader("📄 PDF dosyasını yükle", type=["pdf"])
+uploaded_file = st.file_uploader("📄 Dosya yükle (PDF, CSV, Excel)", type=["pdf", "csv", "xlsx"])
 
 if uploaded_file:
-    uploaded_file.seek(0)
-    text = extract_text(uploaded_file)
+    filename = uploaded_file.name.lower()
 
-    def get_questions(start, end, level):
-        lines = text[start:end].splitlines()
-        return [
-            {
-                "Module": "AP®",
-                "Lesson": "Maths",
-                "Topic": "Limits",
-                "Image": st.session_state.question_data[i]["Image"] if i < len(st.session_state.question_data) else "",
-                "Answer": line.strip().split()[-1] if line.strip() else "",
-                "Answer Description": st.session_state.question_data[i]["Answer Description"] if i < len(st.session_state.question_data) else "",
-                "Level": level
-            }
-            for i, line in enumerate(lines) if line.strip().endswith(('A', 'B', 'C', 'D'))
+    if filename.endswith(".pdf"):
+        uploaded_file.seek(0)
+        text = extract_text(uploaded_file)
+
+        def get_questions(start, end, level):
+            lines = text[start:end].splitlines()
+            return [
+                {
+                    "Module": "AP®",
+                    "Lesson": "Maths",
+                    "Topic": "Limits",
+                    "Image": st.session_state.question_data[i]["Image"] if i < len(st.session_state.question_data) else "",
+                    "Answer": line.strip().split()[-1] if line.strip() else "",
+                    "Answer Description": st.session_state.question_data[i]["Answer Description"] if i < len(st.session_state.question_data) else "",
+                    "Level": level
+                }
+                for i, line in enumerate(lines) if line.strip().endswith(('A', 'B', 'C', 'D'))
+            ]
+
+        sections = [
+            ("Easy Questions", "Easy"),
+            ("Medium Questions", "Medium"),
+            ("Hard Questions", "Hard"),
+            ("Very Hard Questions", "Very Hard")
         ]
 
-    sections = [
-        ("Easy Questions", "Easy"),
-        ("Medium Questions", "Medium"),
-        ("Hard Questions", "Hard"),
-        ("Very Hard Questions", "Very Hard")
-    ]
+        section_indices = [(text.find(title), level) for title, level in sections if text.find(title) != -1]
+        section_indices.sort()
+        section_indices.append((len(text), None))
 
-    section_indices = [(text.find(title), level) for title, level in sections if text.find(title) != -1]
-    section_indices.sort()
-    section_indices.append((len(text), None))
+        combined_data = []
+        for i in range(len(section_indices) - 1):
+            start_idx, level = section_indices[i]
+            end_idx, _ = section_indices[i + 1]
+            combined_data += get_questions(start_idx, end_idx, level)
 
-    combined_data = []
-    for i in range(len(section_indices) - 1):
-        start_idx, level = section_indices[i]
-        end_idx, _ = section_indices[i + 1]
-        combined_data += get_questions(start_idx, end_idx, level)
+        st.session_state.question_data = combined_data
 
-    st.session_state.question_data = combined_data
+    else:
+        if filename.endswith(".csv"):
+            df = pd.read_csv(uploaded_file)
+        else:
+            df = pd.read_excel(uploaded_file)
+        st.session_state.question_data = df.to_dict(orient="records")
 
 if st.session_state.question_data:
     st.markdown("### 📈 Excel Önizleme")
@@ -84,13 +93,19 @@ if st.session_state.question_data:
         with st.expander(f"**Soru {i + 1}**", expanded=True):
             col1, col2 = st.columns(2)
             with col1:
-                st.write(f"**Module:** {q['Module']}")
-                st.write(f"**Lesson:** {q['Lesson']}")
-                st.write(f"**Topic:** {q['Topic']}")
-                st.write(f"**Answer:** {q['Answer']}")
-                st.write(f"**Level:** {q['Level']}")
+                st.write(f"**Module:** {q.get('Module', '')}")
+                st.write(f"**Lesson:** {q.get('Lesson', '')}")
+                st.write(f"**Topic:** {q.get('Topic', '')}")
+                st.write(f"**Answer:** {q.get('Answer', '')}")
+                st.write(f"**Level:** {q.get('Level', '')}")
 
             with col2:
+                if q.get("Image"):
+                    try:
+                        img_bytes = base64.b64decode(q["Image"])
+                        st.image(img_bytes, caption="Soru Görseli", width=80)
+                    except:
+                        pass
                 pasted_img = paste_image_button(label="📋 Soru Görseli", key=f"qimg_{i}")
                 if pasted_img and pasted_img.image_data:
                     buf = io.BytesIO()
@@ -99,6 +114,12 @@ if st.session_state.question_data:
                     st.session_state.question_data[i]["Image"] = base64.b64encode(img_bytes).decode("utf-8")
                     st.image(img_bytes, caption="Soru Görseli", width=80)
 
+                if q.get("Answer Description"):
+                    try:
+                        desc_bytes = base64.b64decode(q["Answer Description"])
+                        st.image(desc_bytes, caption="Cevap Açıklaması Görseli", width=80)
+                    except:
+                        pass
                 pasted_desc = paste_image_button(label="📋 Cevap Açıklaması Görseli", key=f"adesc_{i}")
                 if pasted_desc and pasted_desc.image_data:
                     buf2 = io.BytesIO()
