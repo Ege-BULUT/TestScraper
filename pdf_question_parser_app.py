@@ -27,13 +27,30 @@ if not st.session_state.authenticated:
 
 # ----------------------------------------------------------
 
+
+def extract_topic_from_pdf(pdf_path):
+    with fitz.open(pdf_path) as doc:
+        first_page = doc[0]
+        text = first_page.get_text()
+        lines = [line.strip() for line in text.split("\n") if line.strip()]
+        for i, line in enumerate(lines):
+            # Konu ismi genellikle ilk satırlarda yer alıyor
+            if any(keyword in line.lower() for keyword in ["scalars", "vectors", "limits", "kinematics", "forces"]):
+                return line
+        return "Konu adı bulunamadı"
+
 st.set_page_config(page_title="PDF Soru Tablosu", layout="wide")
 st.title("📘 PDF'ten Soru Tablosu Oluştur")
 
 if 'question_data' not in st.session_state:
     st.session_state.question_data = []
 
+
 uploaded_file = st.file_uploader("📄 Dosya yükle (PDF, CSV, Excel)", type=["pdf", "csv", "xlsx"])
+module_name = st.text_input("Modül İsmini Gir")
+lesson_name = st.text_input("Ders İsmini Gir")
+topic_name  = st.text_input("Konu İsmini Gir")
+
 
 if uploaded_file:
     filename = uploaded_file.name.lower()
@@ -42,19 +59,26 @@ if uploaded_file:
         uploaded_file.seek(0)
         text = extract_text(uploaded_file)
 
+        if not module_name:
+            st.info("Modül adını gir!")
+        if not lesson_name:
+            st.info("Ders adını gir!")
+        if not topic_name:
+            st.info("Konu adını gir!")
+        st.write("modül/ders/konu: ", module_name, lesson_name, topic_name)
         def get_questions(start, end, level):
-            lines = text[start:end].splitlines()
+            lines_section = text[start:end].splitlines()
             return [
                 {
-                    "Module": "AP®",
-                    "Lesson": "Maths",
-                    "Topic": "Limits",
+                    "Module": module_name,
+                    "Lesson": lesson_name,
+                    "Topic": topic_name,
                     "Image": st.session_state.question_data[i]["Image"] if i < len(st.session_state.question_data) else "",
                     "Answer": line.strip().split()[-1] if line.strip() else "",
                     "Answer Description": st.session_state.question_data[i]["Answer Description"] if i < len(st.session_state.question_data) else "",
                     "Level": level
                 }
-                for i, line in enumerate(lines) if line.strip().endswith(('A', 'B', 'C', 'D'))
+                for i, line in enumerate(lines_section) if line.strip().endswith(('A', 'B', 'C', 'D'))
             ]
 
         sections = [
@@ -82,7 +106,6 @@ if uploaded_file:
         else:
             df = pd.read_excel(uploaded_file)
 
-        # Unnamed: 0 gibi otomatik index kolonlarını kaldır
         df = df.loc[:, ~df.columns.str.contains('^Unnamed')] 
         st.session_state.question_data = df.to_dict(orient="records")
 
